@@ -1,0 +1,26 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/evgenia/CLionProjects/MyShell/main.cpp
+iostream
+-
+string
+-
+unistd.h
+-
+vector
+-
+cstring
+-
+iterator
+-
+sstream
+-
+wait.h
+-
+
