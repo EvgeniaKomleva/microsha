@@ -1,3 +1,0 @@
-/home/evgenia/CLionProjects/MyShell/cmake-build-debug/CMakeFiles/edit_cache.dir
-/home/evgenia/CLionProjects/MyShell/cmake-build-debug/CMakeFiles/rebuild_cache.dir
-/home/evgenia/CLionProjects/MyShell/cmake-build-debug/CMakeFiles/MyShell.dir
