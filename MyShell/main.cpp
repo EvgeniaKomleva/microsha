@@ -8,14 +8,23 @@
 #include <wait.h>
 using namespace std;
 
-void PrintVector(vector<string>& v) { //пригодится в хозяйстве
-    for (int i = 0; i < v.size(); i++) {
-        cout << v[i] << endl;
-    }
+int GetStatus () { //узнать привелегерованный пользователь или нет
+    return 0;
 }
 
-int GetStatus () {
-    return 0;
+int cd(char **args) {
+    if (chdir(args[1]) != 0) {
+        perror("lsh");
+    }
+    return 1;
+}
+
+int time (char **args){
+    return 1;
+}
+
+int pwd(char **args){
+    return 1;
 }
 
 string WorkingDir() { //текущая директория
@@ -23,18 +32,6 @@ string WorkingDir() { //текущая директория
     getcwd( buff, FILENAME_MAX );
     string working_dir(buff);
     return working_dir;
-}
-
-vector<string> GetCods () { //разбивает команду на слова по пробелам и записывает в вектор
-    vector<string> arr;//(похоже не нужна, но пусть останется - в хозяйстве пригодится!)
-    string str;
-    (getline(cin, str));
-    istringstream iss(str);
-    vector<string> tokens;
-    copy(istream_iterator<string>(iss),
-              istream_iterator<string>(),
-              back_inserter<vector<string> >(tokens));
-    return tokens;
 }
 
 /*порождение процессов */
@@ -48,9 +45,6 @@ int new_process(char **args) {
             perror("lsh");
         }
     } else {
-        /*do {
-            waitpid(pid, &status, WUNTRACED);
-        } while (!WIFEXITED(status));//ждем все процессы*/
         waitpid(pid, &status, WUNTRACED);
     }
 
@@ -58,24 +52,20 @@ int new_process(char **args) {
 
 }
 //обьединение встроенных и внешний ф-ций, запускает либо встроенный, либо наш процесс
-int execute(char **args)
-{
-    if (args[0] == NULL) {
-        return 1;
+int execute(char **args) {
+    if (strcmp(args[0], "cd") == 0) {
+            return cd(args);
+    } else if (strcmp(args[0], "time") == 0){
+        return time(args);
+    }else if (strcmp(args[0], "pwd") == 0) {
+        return pwd(args);
+    }else {
+        return new_process(args);
     }
-
-    /*for (int i = 0; i < lsh_num_builtins(); i++) { //если вызванавстроенная фция
-        if (strcmp(args[0], builtin_str[i]) == 0) {
-            return (*builtin_func[i])(args);
-        }
-    }*/
-
-    return new_process(args);
 }
 
 //чтение неограниченного обьема текста
-char *  read_line(void)
-{
+char *  read_line(void) {
     int bufsize = 1000;
     int position = 0;//число прочитанных символов
     char *buffer = (char*)malloc(sizeof(char) * bufsize);
@@ -91,7 +81,6 @@ char *  read_line(void)
             buffer[position] = c;
         }
         position++;
-
         if (position >= bufsize) {
             bufsize += 1000;
             buffer = (char*)realloc(buffer, bufsize);
@@ -100,8 +89,7 @@ char *  read_line(void)
 }
 
 //разделение команд
-char **split_line(char *line)
-{
+char **split_line(char *line) {
     int bufsize = 50;
     int position = 0;
     char **tokens = (char**)malloc(bufsize * sizeof(char*));
