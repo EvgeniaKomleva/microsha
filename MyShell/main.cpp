@@ -6,7 +6,10 @@
 #include <iterator>
 #include <sstream>
 #include <wait.h>
+#include <time.h>
 using namespace std;
+int konveer, in_red, out_red, question, star ;
+
 
 int GetStatus () { //узнать привелегерованный пользователь или нет
     return 0;
@@ -20,10 +23,7 @@ int cd(char **args) {
 }
 
 int time (char **args){
-    return 1;
-}
-
-int pwd(char **args){
+    
     return 1;
 }
 
@@ -34,23 +34,73 @@ string WorkingDir() { //текущая директория
     return working_dir;
 }
 
-/*порождение процессов */
-int new_process(char **args) {
-    pid_t pid;
-    int status;
+int pwd(char **args){
+    cout << "You are here! : " << WorkingDir()<< endl;
+    return 1;
+}
 
-    pid = fork();
+
+
+void konveer_foo(char **args) {//поиск | и разделение на вектора слов между палочками
+//должен паралельно запускать процеллы по количеству палочек
+    close(0);
+    close(1);
+    int fd[2];
+    pipe(fd);
+    pid_t pid = fork();
     if (pid == 0) {
+        close(fd[0]);
         if (execvp(args[0], args) == -1) {
             perror("lsh");
         }
+        exit(EXIT_FAILURE);
     } else {
-        waitpid(pid, &status, WUNTRACED);
+        close(fd[1]);
+        while (!feof(stdin)) {
+            char buf[10000]={0};
+            fgets(buf, sizeof buf, stdin);
+            fprintf(stderr, "got %s", buf);
+        }
     }
 
-    return 1;
-
 }
+
+/*порождение процессов */
+int new_process(char **args) {
+    pid_t pid, wpid;
+    int status;
+
+    if (konveer!=0){
+        konveer_foo(args);
+    }
+    else {
+        pid = fork();
+        if (pid == 0) {
+            // Дочерний процесс
+            if (execvp(args[0], args) == -1) {
+                perror("lsh");
+            }
+            exit(EXIT_FAILURE);
+        } else if (pid < 0) {
+            // Ошибка при форкинге
+            perror("lsh");
+        } else {
+            // Родительский процесс
+            do {
+                wpid = waitpid(pid, &status, WUNTRACED);
+            } while (!WIFEXITED(status) && !WIFSIGNALED(status));
+        }
+    }
+    return 1;
+}
+
+int in_out(char **args) {//Перенаправление стандартных потоков ввода вывода
+
+    return 1;
+}
+
+
+
 //обьединение встроенных и внешний ф-ций, запускает либо встроенный, либо наш процесс
 int execute(char **args) {
     if (strcmp(args[0], "cd") == 0) {
@@ -65,13 +115,28 @@ int execute(char **args) {
 }
 
 //чтение неограниченного обьема текста
-char *  read_line(void) {
+char *  read_line() {
     int bufsize = 1000;
     int position = 0;//число прочитанных символов
     char *buffer = (char*)malloc(sizeof(char) * bufsize);
     int c;
     while (1) {
         c = getchar();
+        if (c == '|') { //КОНВЕЙЕР!перенаправление стандартного вывода исполняемой команды на стандартный ввод программы
+            konveer+=1;
+        }
+        if (c == '>') { //Перенаправить стандартный вывод из файла
+            out_red+=1;
+        }
+        if (c == '<') { //Перенаправить стандартный ввод из файла
+            in_red+=1;
+        }
+        if (c == '?') {
+            question+=1;
+        }
+        if (c == '*') {
+            star+=1;
+        }
         if (c == EOF) {
             break;
         } else if (c == '\n') {
@@ -79,12 +144,13 @@ char *  read_line(void) {
             return buffer;
         } else {
             buffer[position] = c;
+            position++;
+            if (position >= bufsize) {
+                bufsize += 1000;
+                buffer = (char*)realloc(buffer, bufsize);
+            }
         }
-        position++;
-        if (position >= bufsize) {
-            bufsize += 1000;
-            buffer = (char*)realloc(buffer, bufsize);
-        }
+
     }
 }
 
@@ -112,9 +178,11 @@ char **split_line(char *line) {
 }
 
 void Start() {
-    char *line;
-    char **args;
+    char *line; //входной текст
+    char **args; //текст разделенный на слова
     int status;
+
+    //int
     do {
         cout << WorkingDir() << "> ";
         line = read_line();
