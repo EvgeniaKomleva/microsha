@@ -10,6 +10,14 @@
 #include <list>
 #include <fcntl.h>
 #include <fnmatch.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <inttypes.h>
+#include <sys/wait.h>
+#include <sys/times.h>
+#include <sys/types.h>
 
 using namespace std;
 
@@ -18,38 +26,6 @@ int cd(vector<string> & args) {
         perror("micro:cd");
     }
     return 1;
-}
-
-void time(int in, int out,  vector<string>& conveer )
-{
-    clock_t start = clock();
-    pid_t pid = fork();
-    int * fd = new int[(conveer.size()-1 ) * 2];
-    if(pid == 0) {
-        char ** args = new char *[conveer.size() + 1];
-        for(int i = 0; i < conveer.size(); i++){
-            args[i] = &(conveer[i][0]);
-        }
-        args[conveer.size()] = NULL;
-        if(in != 0) {
-            dup2(in, 0);
-        }
-        if(out != 1){
-            dup2(out, 1);
-        }
-        for(int i = 0; i < (conveer.size() ) * 2; i++) {
-            if(fd[i] != in && fd[i] != out) close(fd[i]);
-        }
-        execvp(conveer[0].c_str(), args);
-        for(int i = 0; i < conveer.size(); i++){
-            delete [] args[i];
-        }
-        delete [] args;
-        exit(0);
-    }
-    clock_t end = clock();
-    dprintf(2, "%.3lf secs\n",
-            (double)(end - start) / CLOCKS_PER_SEC);
 }
 
 string WorkingDir() { //текущая директория
@@ -105,8 +81,17 @@ int star(vector<string> &conveer, string comand) {
     }
 }
 
-int exec_cod(vector<string> & conveer, int in, int out, int convSize, int * fd) {
+int exec_cod_time(vector<string> & conveer, int in, int out, int convSize, int * fd) {
+    struct tms start_tms;
+    struct tms end_tms;
     pid_t pid = fork();
+    times(&start_tms);
+
+    printf("Test start_tms.tms_utime = %jd\n\n",  (intmax_t)start_tms.tms_utime);
+    printf("Test start_tms.tms_cutime = %jd\n\n", (intmax_t)start_tms.tms_cutime);
+    printf("Test start_tms.tms_stime = %jd\n\n",  (intmax_t)start_tms.tms_stime);
+    printf("Test start_tms.tms_cstime = %jd\n\n",  (intmax_t)start_tms.tms_cstime);
+
     if(pid == 0) {
         char ** args = new char *[conveer.size() + 1];
         for(int i = 0; i < conveer.size(); i++){
@@ -128,6 +113,56 @@ int exec_cod(vector<string> & conveer, int in, int out, int convSize, int * fd) 
         }
         delete [] args;
         exit(0);
+    } else{
+        times(&end_tms);
+
+        printf("Test end_tms.tms_utime = %jd\n\n",end_tms.tms_utime);
+        printf("Test end_tms.tms_cutime = %jd\n\n",end_tms.tms_cutime);
+        printf("Test end_tms.tms_stime = %jd\n\n",end_tms.tms_stime);
+        printf("Test end_tms.tms_cstime = %jd\n\n",end_tms.tms_cstime);
+
+        clock_t cpu_time = end_tms.tms_cutime - start_tms.tms_cutime;
+        clock_t utime = end_tms.tms_utime - start_tms.tms_utime;
+        clock_t stime = end_tms.tms_stime - start_tms.tms_stime;
+        clock_t cstime = end_tms.tms_cstime - start_tms.tms_cstime;
+
+        printf("cpu time %jd\n\n",  (intmax_t)cpu_time);
+        printf("cpu Utime %jd\n\n", (intmax_t)utime);
+        printf("cpu Stime %jd\n\n", (intmax_t)stime);
+        printf("cpu CStime %jd\n\n", (intmax_t)cstime);
+    }
+    return 0;
+}
+
+int exec_cod(vector<string> & conveer, int in, int out, int convSize, int * fd) {
+    if (conveer[0] == "time") {
+        return exec_cod_time(conveer, in, out, convSize, fd);
+    }
+    else
+        {
+    pid_t pid = fork();
+    if(pid == 0) {
+        char **args = new char *[conveer.size() + 1];
+        for (int i = 0; i < conveer.size(); i++) {
+            args[i] = &(conveer[i][0]);
+        }
+        args[conveer.size()] = NULL;
+        if (in != 0) {
+            dup2(in, 0);
+        }
+        if (out != 1) {
+            dup2(out, 1);
+        }
+        for (int i = 0; i < (convSize) * 2; i++) {
+            if (fd[i] != in && fd[i] != out) close(fd[i]);
+        }
+        execvp(conveer[0].c_str(), args);
+        for (int i = 0; i < conveer.size(); i++) {
+            delete[] args[i];
+        }
+        delete[] args;
+        exit(0);
+        }
     }
     return 0;
 }
@@ -228,8 +263,6 @@ int execute(list<vector<string>> & conv) {
             }
         }else if(conveer[0]== "cd" ){
             return cd(conveer);
-        }else if (conveer[1]=="time"){
-            time(0,1,conveer);
         }else if (conveer[0] == "pwd") {
             return pwd(conveer);
         }else {
